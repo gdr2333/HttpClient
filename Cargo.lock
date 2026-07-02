@@ -116,6 +116,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "gdr2333_httpclient"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures-util",
+ "http",
+ "pin-project-lite",
+ "rustls",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "url",
+ "webpki-roots",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,24 +152,6 @@ checksum = "6970f50e31d6fc17d3fa27329444bfa74e196cf62e95052a3f6fee181dba6425"
 dependencies = [
  "bytes",
  "itoa",
-]
-
-[[package]]
-name = "httpclient"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "futures-util",
- "http",
- "pin-project-lite",
- "rustls",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "url",
- "webpki-roots",
 ]
 
 [[package]]
