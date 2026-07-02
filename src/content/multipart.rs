@@ -233,8 +233,14 @@ mod tests {
     #[tokio::test]
     async fn multipart_renders_with_boundary() {
         let mut m = MultipartContent::with_boundary("test-boundary");
-        m.add(MultipartPart::form_field("field1", StringContent::new("v1")));
-        m.add(MultipartPart::form_field("field2", StringContent::new("v2")));
+        m.add(MultipartPart::form_field(
+            "field1",
+            StringContent::new("v1"),
+        ));
+        m.add(MultipartPart::form_field(
+            "field2",
+            StringContent::new("v2"),
+        ));
         let bytes = m.to_bytes().await.unwrap();
         let s = std::str::from_utf8(&bytes).unwrap();
         assert!(s.starts_with("--test-boundary\r\n"));

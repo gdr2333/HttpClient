@@ -48,7 +48,7 @@ impl StreamContent {
         R: AsyncRead + Send + Unpin + 'static,
     {
         let mut headers = HttpContentHeaders::new();
-        let mt: http::HeaderValue = format!("{media_type}").parse().expect("valid media type");
+        let mt: http::HeaderValue = media_type.to_string().parse().expect("valid media type");
         headers.set(http::header::CONTENT_TYPE, mt);
         Self {
             source: Some(Box::pin(source)),
@@ -95,10 +95,7 @@ impl HttpContent for StreamContent {
                 let n = match source.read(&mut tmp).await {
                     Ok(n) => n,
                     Err(e) => {
-                        return Err(HttpRequestException::new(
-                            format!("stream read: {e}"),
-                            None,
-                        ));
+                        return Err(HttpRequestException::new(format!("stream read: {e}"), None));
                     }
                 };
                 if n == 0 {

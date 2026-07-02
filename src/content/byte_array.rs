@@ -2,8 +2,8 @@
 
 use std::pin::Pin;
 
-use async_trait::async_trait;
 use ::bytes::Bytes;
+use async_trait::async_trait;
 use tokio::io::AsyncWrite;
 
 use crate::content::HttpContent;
@@ -27,9 +27,12 @@ impl ByteArrayContent {
     pub fn with_media_type(bytes: impl Into<Bytes>, media_type: &str) -> Self {
         let bytes = bytes.into();
         let mut headers = HttpContentHeaders::new();
-        let mt: http::HeaderValue = format!("{media_type}").parse().expect("valid media type");
+        let mt: http::HeaderValue = media_type.to_string().parse().expect("valid media type");
         headers.set(http::header::CONTENT_TYPE, mt);
-        Self { inner: bytes, headers }
+        Self {
+            inner: bytes,
+            headers,
+        }
     }
 }
 

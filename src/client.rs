@@ -150,7 +150,10 @@ impl HttpClient {
         cancellation_token: CancellationToken,
     ) -> Result<String, HttpRequestError> {
         let mut r = self.get_async(uri, cancellation_token).await?;
-        r.content_mut().read_as_string().await.map_err(HttpRequestError::Http)
+        r.content_mut()
+            .read_as_string()
+            .await
+            .map_err(HttpRequestError::Http)
     }
 
     /// Send a `GET` and return the body as bytes.
@@ -160,7 +163,11 @@ impl HttpClient {
         cancellation_token: CancellationToken,
     ) -> Result<Vec<u8>, HttpRequestError> {
         let mut r = self.get_async(uri, cancellation_token).await?;
-        let bytes = r.content_mut().read_as_bytes().await.map_err(HttpRequestError::Http)?;
+        let bytes = r
+            .content_mut()
+            .read_as_bytes()
+            .await
+            .map_err(HttpRequestError::Http)?;
         Ok(bytes.to_vec())
     }
 

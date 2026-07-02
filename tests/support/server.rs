@@ -30,10 +30,7 @@ pub enum ScriptedResponse {
         body: Vec<u8>,
     },
     /// Reply with a redirect to the given `Location`.
-    Redirect {
-        status: u16,
-        location: String,
-    },
+    Redirect { status: u16, location: String },
     /// Sleep for `delay` before responding. Used to test timeouts.
     DelayThenFixed {
         delay: Duration,
@@ -76,8 +73,6 @@ struct ServerState {
 /// A recorded incoming request.
 #[derive(Debug, Clone)]
 pub struct RecordedRequest {
-    /// The full request line, e.g. `GET /foo HTTP/1.1`.
-    pub request_line: String,
     /// Method, e.g. `GET`.
     pub method: String,
     /// Path, e.g. `/foo`.
@@ -109,11 +104,6 @@ impl TestServer {
         Self { state, addr }
     }
 
-    /// The local address the server is listening on. `http://{addr}` works.
-    pub fn addr(&self) -> SocketAddr {
-        self.addr
-    }
-
     /// A `http://` URL with the given path.
     pub fn url(&self, path: &str) -> String {
         format!("http://{}{}", self.addr, path)
@@ -139,7 +129,7 @@ async fn run(listener: TcpListener, state: Arc<Mutex<ServerState>>) {
         };
         let state = state.clone();
         tokio::spawn(async move {
-            if let Err(_) = handle(&mut sock, &state).await {
+            if handle(&mut sock, &state).await.is_err() {
                 // Connection ended or malformed; ignore.
             }
         });
@@ -198,7 +188,6 @@ async fn handle(
     body.truncate(content_length);
 
     let recorded = RecordedRequest {
-        request_line: request_line.clone(),
         method: method.clone(),
         path: path.clone(),
         headers: headers.clone(),
@@ -209,14 +198,15 @@ async fn handle(
     let response = {
         let mut s = state.lock().await;
         s.last_request = Some(recorded);
-        s.routes.get(&path).cloned().unwrap_or_else(|| {
-            ScriptedResponse::Fixed {
+        s.routes
+            .get(&path)
+            .cloned()
+            .unwrap_or_else(|| ScriptedResponse::Fixed {
                 status: 404,
                 reason: "Not Found".to_string(),
                 headers: vec![("Content-Length".to_string(), "0".to_string())],
                 body: Vec::new(),
-            }
-        })
+            })
     };
 
     match response {
@@ -228,7 +218,10 @@ async fn handle(
         } => {
             // Auto-add Content-Length if not provided.
             let mut h = headers.clone();
-            if !h.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-length")) {
+            if !h
+                .iter()
+                .any(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+            {
                 h.push(("Content-Length".to_string(), body.len().to_string()));
             }
             let resp = build_response(status, &reason, &h, &body);
@@ -238,7 +231,10 @@ async fn handle(
             let resp = build_response(
                 status,
                 "Moved Permanently",
-                &[("Location".to_string(), location), ("Content-Length".to_string(), "0".to_string())],
+                &[
+                    ("Location".to_string(), location),
+                    ("Content-Length".to_string(), "0".to_string()),
+                ],
                 &[],
             );
             sock.write_all(&resp).await?;
@@ -252,7 +248,10 @@ async fn handle(
         } => {
             tokio::time::sleep(delay).await;
             let mut h = headers.clone();
-            if !h.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-length")) {
+            if !h
+                .iter()
+                .any(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+            {
                 h.push(("Content-Length".to_string(), body.len().to_string()));
             }
             let resp = build_response(status, &reason, &h, &body);
@@ -263,12 +262,7 @@ async fn handle(
     Ok(())
 }
 
-fn build_response(
-    status: u16,
-    reason: &str,
-    headers: &[(String, String)],
-    body: &[u8],
-) -> Vec<u8> {
+fn build_response(status: u16, reason: &str, headers: &[(String, String)], body: &[u8]) -> Vec<u8> {
     let mut s = format!("HTTP/1.1 {status} {reason}\r\n");
     for (k, v) in headers {
         s.push_str(k);

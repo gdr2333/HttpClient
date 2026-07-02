@@ -163,10 +163,12 @@ mod tests {
 
     #[test]
     fn parse_unknown_parameter_preserved() {
-        let m =
-            MediaTypeHeaderValue::parse("multipart/form-data; boundary=----abc; charset=utf-8")
-                .unwrap();
+        let m = MediaTypeHeaderValue::parse("multipart/form-data; boundary=----abc; charset=utf-8")
+            .unwrap();
         assert_eq!(m.charset(), Some("utf-8"));
-        assert_eq!(m.to_string(), "multipart/form-data; charset=utf-8; boundary=----abc");
+        assert_eq!(
+            m.to_string(),
+            "multipart/form-data; charset=utf-8; boundary=----abc"
+        );
     }
 }

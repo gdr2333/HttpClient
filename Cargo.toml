@@ -7,6 +7,8 @@ description = "A C#-style HttpClient API surface for async Rust, backed by tokio
 license = "Apache-2.0"
 repository = "https://github.com/gdr2333/httpclient"
 readme = "README.md"
+keywords = ["http", "http-client", "async", "rustls", "tokio"]
+categories = ["network-programming", "asynchronous"]
 
 [lib]
 name = "httpclient"

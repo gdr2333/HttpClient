@@ -12,9 +12,7 @@ use support::server::{ScriptedResponse, TestServer};
 #[tokio::test]
 async fn get_request_lands_with_expected_method_path_host() {
     let server = TestServer::start().await;
-    server
-        .route("/echo", ScriptedResponse::ok("hello"))
-        .await;
+    server.route("/echo", ScriptedResponse::ok("hello")).await;
     let client = HttpClient::new();
     let mut response = client
         .get_async(server.url("/echo"), CancellationToken::none())
@@ -39,9 +37,7 @@ async fn get_request_lands_with_expected_method_path_host() {
 #[tokio::test]
 async fn post_form_sends_content_length_and_url_encoded_body() {
     let server = TestServer::start().await;
-    server
-        .route("/post", ScriptedResponse::ok("ok"))
-        .await;
+    server.route("/post", ScriptedResponse::ok("ok")).await;
     let client = HttpClient::new();
     let form = FormUrlEncodedContent::new(vec![("a", "1"), ("b", "hello world")]);
     let response = client
@@ -76,9 +72,7 @@ async fn post_form_sends_content_length_and_url_encoded_body() {
 #[tokio::test]
 async fn post_string_uses_provided_content_type() {
     let server = TestServer::start().await;
-    server
-        .route("/post", ScriptedResponse::ok("ok"))
-        .await;
+    server.route("/post", ScriptedResponse::ok("ok")).await;
     let client = HttpClient::new();
     let content = StringContent::new("hi");
     let _ = client
@@ -104,9 +98,7 @@ async fn post_string_uses_provided_content_type() {
 #[tokio::test]
 async fn byte_array_body_lands() {
     let server = TestServer::start().await;
-    server
-        .route("/upload", ScriptedResponse::ok("ok"))
-        .await;
+    server.route("/upload", ScriptedResponse::ok("ok")).await;
     let client = HttpClient::new();
     let content = ByteArrayContent::new(vec![0xDE, 0xAD, 0xBE, 0xEF]);
     let _ = client
@@ -156,7 +148,7 @@ async fn timeout_cancels_long_request() {
     let client = HttpClient::new();
     let token = CancellationToken::new().with_timeout(Duration::from_millis(100));
     let result = client.get_async(server.url("/slow"), token).await;
-    let err = result.err().expect("expected cancellation error");
+    let err = result.expect_err("expected cancellation error");
     let msg = err.to_string();
     assert!(
         msg.to_lowercase().contains("cancel") || msg.to_lowercase().contains("timeout"),

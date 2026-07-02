@@ -4,13 +4,13 @@
 //!
 //! Run with `cargo run --example basic_get`.
 
-use httpclient::{HttpClient, CancellationToken};
+use httpclient::{CancellationToken, HttpClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = HttpClient::new();
     let mut response = client
-        .get_async("https://httpbin.org/get", CancellationToken::none())
+        .get_async("https://bing.com", CancellationToken::none())
         .await?;
     println!("status: {}", response.status_code());
     let mut body = response.content_mut().read_as_bytes().await?;

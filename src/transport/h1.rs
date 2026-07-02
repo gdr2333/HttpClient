@@ -39,7 +39,7 @@ pub async fn write_request<W>(
     path: &str,
     host: &str,
     headers: &HeaderMap,
-    mut body: Option<&mut dyn HttpContent>,
+    mut body: Option<Box<dyn HttpContent>>,
 ) -> Result<(), HttpRequestException>
 where
     W: AsyncWrite + Unpin + Send,
@@ -285,8 +285,9 @@ async fn read_chunked<R: AsyncRead + Unpin + Send>(
             .map_err(|e| HttpRequestException::new(format!("read chunk size: {e}"), None))?;
         let size_line = size_line.trim_end_matches(['\r', '\n']);
         let size_str = size_line.split(';').next().unwrap_or("").trim();
-        let size = usize::from_str_radix(size_str, 16)
-            .map_err(|e| HttpRequestException::new(format!("bad chunk size {size_str}: {e}"), None))?;
+        let size = usize::from_str_radix(size_str, 16).map_err(|e| {
+            HttpRequestException::new(format!("bad chunk size {size_str}: {e}"), None)
+        })?;
         if size == 0 {
             // Consume trailers + final CRLF.
             loop {
@@ -355,7 +356,7 @@ mod tests {
     async fn read_response_parses_chunked() {
         let raw: &[u8] =
             b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n";
-        let head = read_response(&raw[..]).await.unwrap();
+        let head = read_response(raw).await.unwrap();
         assert_eq!(head.status, StatusCode::OK);
         assert_eq!(&head.body[..], b"hello");
     }

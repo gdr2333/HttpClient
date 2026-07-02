@@ -2,7 +2,7 @@
 //!
 //! Run with `cargo run --example post_string`.
 
-use httpclient::{HttpClient, CancellationToken, StringContent};
+use httpclient::{CancellationToken, HttpClient, StringContent};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

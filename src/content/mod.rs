@@ -4,8 +4,8 @@
 
 use std::pin::Pin;
 
-use async_trait::async_trait;
 use ::bytes::Bytes;
+use async_trait::async_trait;
 use tokio::io::AsyncWrite;
 
 use crate::error::HttpRequestException;

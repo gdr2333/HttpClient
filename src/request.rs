@@ -31,7 +31,10 @@ impl fmt::Debug for HttpRequestMessage {
             .field("version", &self.version)
             .field("version_policy", &self.version_policy)
             .field("headers", &self.headers)
-            .field("content", &self.content.as_ref().map(|c| c.content_length()))
+            .field(
+                "content",
+                &self.content.as_ref().map(|c| c.content_length()),
+            )
             .finish()
     }
 }
@@ -148,6 +151,13 @@ impl HttpRequestMessage {
     /// Mutable access to the request headers.
     pub fn headers_mut(&mut self) -> &mut HttpRequestHeaders {
         &mut self.headers
+    }
+
+    /// Take the body out of the request, leaving `None` in its place.
+    /// Used by the transport so the body can be sent without holding a
+    /// borrow on the request.
+    pub fn take_content(&mut self) -> Option<Box<dyn HttpContent>> {
+        self.content.take()
     }
 
     /// The body, if any.

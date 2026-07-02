@@ -1,8 +1,8 @@
 //! The actual send logic: open a TCP connection (with or without TLS), write
 //! the request, read the response, follow redirects if enabled.
 
-use http::HeaderMap;
 use http::header::HeaderName;
+use http::HeaderMap;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::OnceCell;
@@ -51,12 +51,6 @@ pub async fn execute_send(
     let cancel = cancellation_token.clone();
 
     loop {
-        // Re-borrow the body each iteration.
-        let body: Option<&mut dyn HttpContent> = match request.content_mut() {
-            Some(b) => Some(b),
-            None => None,
-        };
-
         let path_and_query = build_path_and_query(&uri);
         let host = uri
             .host_str()
@@ -70,40 +64,49 @@ pub async fn execute_send(
             _ => Scheme::Http,
         };
         let host_header = host_with_port(&host, port, scheme);
-        let _ = PoolKey { scheme, host: host.clone(), port };
+        let _ = PoolKey {
+            scheme,
+            host: host.clone(),
+            port,
+        };
 
-        let http_method: http::Method = method
-            .as_str()
-            .parse()
-            .map_err(|_| HttpRequestError::Http(HttpRequestException::new(
+        let http_method: http::Method = method.as_str().parse().map_err(|_| {
+            HttpRequestError::Http(HttpRequestException::new(
                 format!("invalid method: {method}"),
                 None,
-            )))?;
+            ))
+        })?;
         let headers = request_headers.clone();
 
-        let send_fut = send_once(
-            scheme,
-            host.clone(),
-            port,
-            &http_method,
-            &path_and_query,
-            &host_header,
-            &headers,
-            body,
-        );
+        // Take ownership of the body so we don't hold a borrow on `request`
+        // across the await. `take_content` is `Option::take`, so this is
+        // O(1) and the borrow on `request` ends immediately.
+        let body: Option<Box<dyn HttpContent>> = request.take_content();
 
-        let response = tokio::select! {
-            biased;
-            _ = cancel.cancelled() => {
-                return Err(HttpRequestError::Canceled(OperationCanceledException::new("canceled")));
+        let response = {
+            let send_fut = send_once(
+                scheme,
+                host.clone(),
+                port,
+                &http_method,
+                &path_and_query,
+                &host_header,
+                &headers,
+                body,
+            );
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => {
+                    return Err(HttpRequestError::Canceled(OperationCanceledException::new("canceled")));
+                }
+                r = send_fut => r?,
             }
-            r = send_fut => r?,
         };
 
         let should_redirect = allow_auto_redirect
             && redirections_left > 0
             && matches!(response.status_code().as_u16(), 301..=308)
-            && !matches!(response.status_code().as_u16(), 304 | 305 | 306);
+            && !matches!(response.status_code().as_u16(), 304..=306);
         if !should_redirect {
             return Ok(response);
         }
@@ -111,7 +114,7 @@ pub async fn execute_send(
         let location = response
             .headers()
             .as_map()
-            .get(&HeaderName::from_static("location"))
+            .get(HeaderName::from_static("location"))
             .and_then(|v| v.to_str().ok())
             .map(str::to_string);
         let Some(location) = location else {
@@ -126,15 +129,15 @@ pub async fn execute_send(
         let original_method = method.clone();
         method = match method {
             crate::method::HttpMethod::Post | crate::method::HttpMethod::Put
-                if matches!(response.status_code().as_u16(), 301 | 302 | 303) =>
+                if matches!(response.status_code().as_u16(), 301..=303) =>
             {
                 crate::method::HttpMethod::Get
             }
             other => other,
         };
         if std::mem::discriminant(&method) != std::mem::discriminant(&original_method) {
-            // Method changed; clear the body so the next iteration doesn't re-send it.
-            request.set_content(None);
+            // Method changed; the body has already been taken on the
+            // previous send, so the next iteration sends no body.
         }
         redirections_left = redirections_left.saturating_sub(1);
     }
@@ -151,6 +154,7 @@ fn resolve_url(request: &HttpRequestMessage) -> Result<Url, HttpRequestException
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn send_once(
     scheme: Scheme,
     host: String,
@@ -159,7 +163,7 @@ async fn send_once(
     path_and_query: &str,
     host_header: &str,
     headers: &HeaderMap,
-    body: Option<&mut dyn HttpContent>,
+    body: Option<Box<dyn HttpContent>>,
 ) -> Result<HttpResponseMessage, HttpRequestError> {
     match scheme {
         Scheme::Http => {
@@ -182,19 +186,23 @@ async fn send_once(
         }
         Scheme::Https => {
             let tcp = open_tcp(&host, port).await?;
-            let server_name = rustls::pki_types::ServerName::try_from(host.clone())
-                .map_err(|e| HttpRequestError::Http(HttpRequestException::new(
-                    format!("invalid server name {host}: {e}"),
-                    None,
-                )))?;
+            let server_name =
+                rustls::pki_types::ServerName::try_from(host.clone()).map_err(|e| {
+                    HttpRequestError::Http(HttpRequestException::new(
+                        format!("invalid server name {host}: {e}"),
+                        None,
+                    ))
+                })?;
             let tls = get_tls_connector()
                 .await
                 .connect(server_name, tcp)
                 .await
-                .map_err(|e| HttpRequestError::Http(HttpRequestException::new(
-                    format!("tls handshake: {e}"),
-                    None,
-                )))?;
+                .map_err(|e| {
+                    HttpRequestError::Http(HttpRequestException::new(
+                        format!("tls handshake: {e}"),
+                        None,
+                    ))
+                })?;
             let (mut reader, mut writer) = tokio::io::split(tls);
             h1::write_request(
                 &mut writer,
@@ -223,7 +231,7 @@ fn build_response(head: h1::ResponseHead) -> HttpResponseMessage {
     let ct = response
         .headers()
         .as_map()
-        .get(&HeaderName::from_static("content-type"))
+        .get(HeaderName::from_static("content-type"))
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
     let bytes = crate::content::ByteArrayContent::with_media_type(
@@ -259,14 +267,12 @@ fn build_path_and_query(url: &Url) -> String {
 }
 
 async fn open_tcp(host: &str, port: u16) -> Result<TcpStream, HttpRequestError> {
-    let tcp = TcpStream::connect((host, port))
-        .await
-        .map_err(|e| {
-            HttpRequestError::Http(HttpRequestException::new(
-                format!("tcp connect {host}:{port}: {e}"),
-                None,
-            ))
-        })?;
+    let tcp = TcpStream::connect((host, port)).await.map_err(|e| {
+        HttpRequestError::Http(HttpRequestException::new(
+            format!("tcp connect {host}:{port}: {e}"),
+            None,
+        ))
+    })?;
     tcp.set_nodelay(true).ok();
     Ok(tcp)
 }
