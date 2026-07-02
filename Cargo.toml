@@ -1,0 +1,30 @@
+[package]
+name = "httpclient"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.83"
+description = "A C#-style HttpClient API surface for async Rust, backed by tokio + rustls."
+license = "Apache-2.0"
+repository = "https://github.com/gdr2333/httpclient"
+readme = "README.md"
+
+[lib]
+name = "httpclient"
+path = "src/lib.rs"
+
+[dependencies]
+tokio            = { version = "1.52", features = ["net", "io-util", "time", "rt", "rt-multi-thread", "sync", "macros"] }
+tokio-util       = { version = "0.7", features = ["io"] }
+tokio-rustls     = { version = "0.26", default-features = false, features = ["logging", "tls12", "ring"] }
+rustls           = { version = "0.23", default-features = false, features = ["logging", "std", "ring", "tls12"] }
+webpki-roots     = "1.0"
+http             = "1.4"
+bytes            = "1.12"
+url              = "2.5"
+async-trait      = "0.1"
+futures-util     = { version = "0.3", default-features = false, features = ["std", "io"] }
+thiserror        = "2.0"
+pin-project-lite = "0.2"
+
+[dev-dependencies]
+tokio            = { version = "1.52", features = ["full"] }
